@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Remote • Control — Screen Mirroring</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+  <style>
+    :root {
+      --accent: #3A77F5;
+      --accent-light: #5B9BFF;
+      --accent-deep: #2F6BF2;
+      --purple: #7447F5;
+      --green: #2ED166;
+      --ink: #F3F5FF;
+      --ink-2: #AEB7D4;
+      --glass: rgba(255, 255, 255, 0.05);
+      --stroke: rgba(255, 255, 255, 0.10);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: var(--ink);
+      font-family: "Plus Jakarta Sans", "Google Sans", Roboto, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* slow aurora behind everything, kept to two layers so older dongles stay smooth */
+    .aurora {
+      position: fixed;
+      inset: -20%;
+      pointer-events: none;
+      background:
+        radial-gradient(38% 42% at 22% 30%, rgba(58, 119, 245, 0.30), transparent 70%),
+        radial-gradient(34% 38% at 80% 70%, rgba(116, 71, 245, 0.24), transparent 70%);
+      animation: drift 38s ease-in-out infinite alternate;
+    }
+
+    .waves {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: -6vh;
+      height: 52vh;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(-3%, -2%, 0) scale(1); }
+      to { transform: translate3d(3%, 2%, 0) scale(1.08); }
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 5.2vh 5.6vw 6vh;
+      transition: opacity 0.5s ease;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1.1vw;
+    }
+
+    .logo {
+      width: 4.4vw;
+      height: 4.4vw;
+      min-width: 52px;
+      min-height: 52px;
+      border-radius: 30%;
+      background: linear-gradient(135deg, var(--accent-light), var(--accent-deep));
+      box-shadow: 0 1.2vw 2.6vw rgba(47, 107, 242, 0.45);
+      display: grid;
+      place-items: center;
+    }
+
+    .logo svg { width: 58%; height: 58%; }
+
+    .brand-name {
+      font-size: 2.1vw;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 1.05vw;
+      font-weight: 600;
+      color: var(--accent-light);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-top: 0.2vw;
+    }
+
+    #clock {
+      font-size: 2.2vw;
+      font-weight: 700;
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      align-items: center;
+      gap: 4vw;
+      animation: burnin 240s ease-in-out infinite alternate;
+    }
+
+    @keyframes burnin {
+      from { transform: translate3d(-0.6vw, -0.4vh, 0); }
+      to { transform: translate3d(0.6vw, 0.4vh, 0); }
+    }
+
+    .art { position: relative; justify-self: center; width: 36vw; }
+    .art svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+    .pulse {
+      position: absolute;
+      inset: 18% 22%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(58, 119, 245, 0.35), transparent 65%);
+      animation: breathe 4.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.55; transform: scale(0.94); }
+      50% { opacity: 1; transform: scale(1.06); }
+    }
+
+    .arc { animation: arc 2.4s ease-in-out infinite; }
+    .arc.a2 { animation-delay: 0.3s; }
+    .arc.a3 { animation-delay: 0.6s; }
+
+    @keyframes arc {
+      0%, 100% { opacity: 0.25; }
+      50% { opacity: 1; }
+    }
+
+    .copy { min-width: 0; }
+
+    .copy h1 {
+      overflow-wrap: anywhere;
+      font-size: 4.2vw;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+    }
+
+    .copy h1 em {
+      font-style: normal;
+      color: var(--accent-light);
+    }
+
+    .copy p {
+      margin-top: 1.6vw;
+      font-size: 1.45vw;
+      line-height: 1.55;
+      color: var(--ink-2);
+      max-width: 34vw;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.8vw;
+      margin-top: 2.4vw;
+      padding: 0.9vw 1.5vw;
+      border-radius: 999px;
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      font-size: 1.2vw;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 0.8vw;
+      height: 0.8vw;
+      border-radius: 50%;
+      background: #6B7390;
+    }
+
+    .chip.waiting .dot { background: var(--accent-light); animation: blink 1.4s ease-in-out infinite; }
+    .chip.ready .dot { background: var(--green); box-shadow: 0 0 0.8vw rgba(46, 209, 102, 0.8); }
+    .chip.busy .dot { background: transparent; border: 0.25vw solid rgba(91, 155, 255, 0.3); border-top-color: var(--accent-light); animation: spin 0.9s linear infinite; }
+
+    @keyframes blink { 50% { opacity: 0.3; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.4vw;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 1.1vw;
+      padding: 1.3vw 1.4vw;
+      border-radius: 1.4vw;
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      transition: border-color 0.4s ease, background 0.4s ease;
+    }
+
+    .step .num {
+      flex: none;
+      width: 2.8vw;
+      height: 2.8vw;
+      border-radius: 0.9vw;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.25vw;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink-2);
+      transition: all 0.4s ease;
+    }
+
+    .step.on .num {
+      background: linear-gradient(135deg, var(--accent-light), var(--accent-deep));
+      color: #fff;
+      box-shadow: 0 0.6vw 1.4vw rgba(47, 107, 242, 0.45);
+    }
+
+    .step.done .num { background: var(--green); color: #fff; }
+    .step.on { border-color: rgba(91, 155, 255, 0.45); background: rgba(58, 119, 245, 0.10); }
+
+    .step b { display: block; font-size: 1.2vw; font-weight: 700; }
+    .step span { display: block; font-size: 0.98vw; color: var(--ink-2); margin-top: 0.25vw; line-height: 1.4; }
+
+    /* live surface */
+    #screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+    }
+
+    body.live #screen { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
+    body.live #stage { opacity: 0; }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    #badge {
+      position: fixed;
+      top: 4vh;
+      left: 50%;
+      transform: translate(-50%, -1vh);
+      display: flex;
+      align-items: center;
+      gap: 0.8vw;
+      padding: 0.8vw 1.5vw;
+      border-radius: 999px;
+      background: rgba(10, 14, 24, 0.72);
+      border: 1px solid var(--stroke);
+      font-size: 1.1vw;
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      pointer-events: none;
+    }
+
+    #badge.show { opacity: 1; transform: translate(-50%, 0); }
+
+    #badge i {
+      width: 0.7vw;
+      height: 0.7vw;
+      border-radius: 50%;
+      background: #FF3D3D;
+      box-shadow: 0 0 0.8vw rgba(255, 61, 61, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora"></div>
+  <svg class="waves" viewBox="0 0 1440 400" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="wv" x1="0" x2="1">
+        <stop offset="0" stop-color="#5B9BFF" stop-opacity="0" />
+        <stop offset="0.5" stop-color="#5B9BFF" stop-opacity="0.5" />
+        <stop offset="1" stop-color="#7447F5" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <path d="M0 260 C 260 140, 520 360, 760 240 S 1220 120, 1440 220" fill="none" stroke="url(#wv)" stroke-width="2" />
+    <path d="M0 300 C 300 200, 560 380, 820 280 S 1240 180, 1440 270" fill="none" stroke="url(#wv)" stroke-width="1.5" opacity="0.7" />
+    <path d="M0 340 C 320 260, 600 400, 860 320 S 1260 240, 1440 320" fill="none" stroke="url(#wv)" stroke-width="1" opacity="0.5" />
+  </svg>
+
+  <div id="stage">
+    <header>
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="7" y="2.5" width="10" height="19" rx="3" />
+            <circle cx="12" cy="9" r="2.4" />
+            <path d="M10 14.5h4M10 17.5h4" />
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Remote • Control</div>
+          <div class="brand-sub">Screen Mirroring</div>
+        </div>
+      </div>
+      <div id="clock">--:--</div>
+    </header>
+
+    <main>
+      <div class="art" aria-hidden="true">
+        <div class="pulse"></div>
+        <svg viewBox="0 0 420 300">
+          <defs>
+            <linearGradient id="tvg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5B9BFF" />
+              <stop offset="1" stop-color="#2F6BF2" />
+            </linearGradient>
+            <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="10" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g filter="url(#glow)">
+            <rect x="20" y="30" width="300" height="180" rx="16" fill="url(#tvg)" />
+            <rect x="150" y="210" width="40" height="22" fill="#2F6BF2" />
+            <rect x="110" y="232" width="120" height="10" rx="5" fill="#2F6BF2" />
+          </g>
+          <rect x="36" y="46" width="268" height="148" rx="10" fill="#ffffff" opacity="0.08" />
+          <g stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none">
+            <path class="arc a1" d="M300 108 a20 20 0 0 0 0 34" />
+            <path class="arc a2" d="M286 96 a36 36 0 0 0 0 58" />
+            <path class="arc a3" d="M272 84 a52 52 0 0 0 0 82" />
+          </g>
+          <g filter="url(#glow)">
+            <rect x="320" y="70" width="80" height="150" rx="14" fill="#2F6BF2" stroke="#9cc2ff" stroke-width="3" />
+            <rect x="328" y="80" width="64" height="130" rx="9" fill="url(#tvg)" />
+            <circle cx="360" cy="86" r="3" fill="#0b1630" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="copy">
+        <h1 id="title">Your phone,<br /><em>on the big screen</em></h1>
+        <p id="subtitle">Open Remote • Control on your phone, go to Screen Mirroring and choose this TV.</p>
+        <div id="chip" class="chip waiting"><span class="dot"></span><span id="chipText">Waiting for your phone</span></div>
+      </div>
+    </main>
+
+    <section class="steps">
+      <div class="step on" id="step1">
+        <div class="num">1</div>
+        <div><b>Connect this TV</b><span>Pick this TV in Screen Mirroring</span></div>
+      </div>
+      <div class="step" id="step2">
+        <div class="num">2</div>
+        <div><b>Tap Start Mirroring</b><span>Then choose Start Broadcast</span></div>
+      </div>
+      <div class="step" id="step3">
+        <div class="num">3</div>
+        <div><b>Enjoy</b><span>Apps, photos and videos show up here</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="screen">
+    <video id="video" autoplay playsinline muted></video>
+  </div>
+  <div id="badge"><i></i><span id="badgeText">Mirroring live</span></div>
+
+  <script>
+    const NAMESPACE = 'urn:x-cast:com.smartcoreapps.tvremote.mirror';
+    const WATCH_EVERY = 1500;
+    const FETCH_TIMEOUT = 1200;
+    const DROP_GRACE = 7000;
+    const IDLE_EXIT = 15 * 60 * 1000;
+
+    const context = cast.framework.CastReceiverContext.getInstance();
+    const video = document.getElementById('video');
+    const $ = (id) => document.getElementById(id);
+
+    // phone details from the "pair" note
+    let link = null;
+    let peer = null;
+    let generation = 0;
+    let lastOffer = null;
+    let watchTimer = null;
+    let iceTimer = null;
+    let dropTimer = null;
+    let badgeTimer = null;
+    let idleTimer = null;
+    let joining = false;
+
+    // ---------- screen states ----------
+
+    function showIdle() {
+      document.body.classList.remove('live');
+      $('title').innerHTML = 'Your phone,<br /><em>on the big screen</em>';
+      $('subtitle').textContent = 'Open Remote • Control on your phone, go to Screen Mirroring and choose this TV.';
+      setChip('waiting', 'Waiting for your phone');
+      setSteps(1);
+    }
+
+    function showPaired() {
+      document.body.classList.remove('live');
+      const phone = link && link.phone ? link.phone : 'your phone';
+      $('title').innerHTML = 'Connected to<br /><em></em>';
+      $('title').querySelector('em').textContent = phone;
+      $('subtitle').textContent = 'Tap Start Mirroring on your phone, then Start Broadcast. Your screen will appear here in a moment.';
+      setChip('ready', 'Ready to mirror');
+      setSteps(2);
+    }
+
+    function showJoining() {
+      setChip('busy', 'Starting screen mirroring…');
+      setSteps(3);
+    }
+
+    function showLive() {
+      document.body.classList.add('live');
+      const phone = link && link.phone ? link.phone : 'your phone';
+      $('badgeText').textContent = 'Mirroring ' + phone;
+      $('badge').classList.add('show');
+      clearTimeout(badgeTimer);
+      badgeTimer = setTimeout(() => $('badge').classList.remove('show'), 4000);
+    }
+
+    function setChip(kind, text) {
+      $('chip').className = 'chip ' + kind;
+      $('chipText').textContent = text;
+    }
+
+    function setSteps(current) {
+      ['step1', 'step2', 'step3'].forEach((id, index) => {
+        const step = $(id);
+        step.classList.toggle('done', index + 1 < current);
+        step.classList.toggle('on', index + 1 === current);
+      });
+    }
+
+    function tickClock() {
+      const now = new Date();
+      $('clock').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ---------- talking to the phone ----------
+
+    function phoneURL(path) {
+      const query = 'session=' + encodeURIComponent(link.session);
+      return 'http://' + link.host + ':' + link.port + path + (path.indexOf('?') === -1 ? '?' : '&') + query;
+    }
+
+    async function request(path, body) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+      try {
+        // text/plain keeps it a simple request, no cors preflight to the phone
+        const response = await fetch(phoneURL(path), {
+          method: body ? 'POST' : 'GET',
+          headers: body ? { 'Content-Type': 'text/plain' } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (response.status !== 200) return null;
+        return await response.json();
+      } catch (error) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function sayHello() {
+      context.sendCustomMessage(NAMESPACE, undefined, { kind: 'hello' });
+    }
+
+    // the phone only serves an offer while a broadcast runs, so a slow poll is enough to catch it
+    function startWatching() {
+      stopWatching();
+      if (!link) return;
+      watchTimer = setInterval(checkForOffer, WATCH_EVERY);
+      checkForOffer();
+    }
+
+    function stopWatching() {
+      clearInterval(watchTimer);
+      watchTimer = null;
+    }
+
+    async function checkForOffer() {
+      if (!link || peer || joining) return;
+      const offer = await request('/offer');
+      if (offer && offer.sdp && offer.sdp !== lastOffer) {
+        join(offer.sdp);
+      }
+    }
+
+    // "go" means the offer is already up, try hard for a few seconds
+    async function joinSoon() {
+      if (peer || joining) return;
+      showJoining();
+      for (let attempt = 0; attempt < 60 && link && !peer && !joining; attempt++) {
+        const offer = await request('/offer');
+        if (offer && offer.sdp && offer.sdp !== lastOffer) {
+          join(offer.sdp);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      if (!peer && !joining && link) showPaired();
+    }
+
+    async function join(offerSdp) {
+      if (peer || joining) return;
+      joining = true;
+      stopWatching();
+      showJoining();
+      const mine = ++generation;
+      lastOffer = offerSdp;
+
+      try {
+        peer = new RTCPeerConnection({ iceServers: [] });
+        peer.ontrack = (event) => {
+          if (mine !== generation) return;
+          const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+          if (video.srcObject !== stream) attach(stream);
+        };
+        peer.onicecandidate = (event) => {
+          if (!event.candidate || mine !== generation) return;
+          request('/candidate', {
+            candidate: event.candidate.candidate,
+            mid: event.candidate.sdpMid,
+            line: event.candidate.sdpMLineIndex || 0,
+          });
+        };
+        peer.onconnectionstatechange = () => {
+          if (mine !== generation || !peer) return;
+          watchConnection(peer.connectionState);
+        };
+
+        await peer.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        if (mine !== generation) return;
+        const sent = await request('/answer', { session: link.session, sdp: answer.sdp });
+        if (!sent) throw new Error('answer not delivered');
+        pullCandidates(mine);
+      } catch (error) {
+        console.warn('mirror join failed', error);
+        // let the watcher retry this same offer
+        lastOffer = null;
+        if (mine === generation) teardown();
+      } finally {
+        if (mine === generation) joining = false;
+      }
+    }
+
+    function pullCandidates(mine) {
+      clearInterval(iceTimer);
+      let connectedTicks = 0;
+      iceTimer = setInterval(async () => {
+        if (mine !== generation || !peer) return clearInterval(iceTimer);
+        const batch = await request('/candidates');
+        if (batch && batch.items) {
+          for (const item of batch.items) {
+            try {
+              await peer.addIceCandidate({ candidate: item.candidate, sdpMid: item.mid, sdpMLineIndex: item.line });
+            } catch (error) {
+              console.warn('candidate skipped', error);
+            }
+          }
+        }
+        // keep draining a little after connecting, late candidates still trickle in
+        if (peer && peer.connectionState === 'connected' && ++connectedTicks > 20) {
+          clearInterval(iceTimer);
+        }
+      }, 250);
+    }
+
+    function watchConnection(state) {
+      if (state === 'connected') {
+        clearTimeout(dropTimer);
+        dropTimer = null;
+      } else if (state === 'disconnected') {
+        // wifi hiccups usually heal, only give up after a grace period
+        clearTimeout(dropTimer);
+        dropTimer = setTimeout(teardown, DROP_GRACE);
+      } else if (state === 'failed' || state === 'closed') {
+        teardown();
+      }
+    }
+
+    function attach(stream) {
+      video.srcObject = stream;
+      video.muted = true;
+      const reveal = () => {
+        if (!video.videoWidth) return;
+        showLive();
+        video.muted = false;
+      };
+      video.onplaying = reveal;
+      video.onresize = reveal;
+      video.play().catch(() => {
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+    }
+
+    function teardown() {
+      generation++;
+      joining = false;
+      clearInterval(iceTimer);
+      clearTimeout(dropTimer);
+      iceTimer = null;
+      dropTimer = null;
+      if (peer) {
+        try { peer.close(); } catch (error) {}
+        peer = null;
+      }
+      try { video.pause(); } catch (error) {}
+      video.srcObject = null;
+      $('badge').classList.remove('show');
+      if (link) {
+        showPaired();
+        startWatching();
+      } else {
+        showIdle();
+      }
+    }
+
+    // ---------- cast plumbing ----------
+
+    context.addCustomMessageListener(NAMESPACE, (event) => {
+      let note = event.data;
+      if (typeof note === 'string') {
+        try { note = JSON.parse(note); } catch (error) { return; }
+      }
+      if (!note || !note.kind) return;
+
+      if (note.kind === 'pair' || note.kind === 'go') {
+        if (!note.session || !note.host || !note.port) return;
+        const changed = !link || link.session !== note.session || link.host !== note.host;
+        link = { session: note.session, host: note.host, port: note.port, phone: note.phone || (link && link.phone) };
+        if (changed && peer) teardown();
+        if (note.kind === 'go') {
+          joinSoon();
+        } else if (!peer && !joining) {
+          showPaired();
+          startWatching();
+        }
+      } else if (note.kind === 'halt') {
+        if (peer || joining) teardown();
+      }
+    });
+
+    context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+      clearTimeout(idleTimer);
+      sayHello();
+    });
+
+    // the phone app can go to the background while the broadcast keeps running, so stay put
+    context.addEventListener(cast.framework.system.EventType.SENDER_DISCONNECTED, () => {
+      if (context.getSenders().length > 0) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        if (!peer && context.getSenders().length === 0) context.stop();
+      }, IDLE_EXIT);
+    });
+
+    showIdle();
+    tickClock();
+    setInterval(tickClock, 15000);
+
+    context.start({
+      disableIdleTimeout: true,
+      maxInactivity: 3600,
+      customNamespaces: { [NAMESPACE]: cast.framework.system.MessageType.JSON },
+    });
+  </script>
+</body>
+</html>
